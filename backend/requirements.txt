@@ -1,0 +1,17 @@
+# Web framework
+flask
+flask-cors
+python-dotenv
+
+# Certificate parsing
+cryptography
+
+# AI explanation
+openai
+
+# Neural network risk scorer
+torch
+numpy
+pandas
+scikit-learn
+requests
