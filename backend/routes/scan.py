@@ -3,11 +3,10 @@ from services.cert_checker import get_certificate_info
 from services.risk_analyzer import analyze_risk
 from services.llm_explainer import explain_with_ai
 from services.ml_model import load_model, predict_risk
+from services.redirect_chain_inspector import inspect_redirect_chain
 
 scan_bp = Blueprint("scan", __name__)
 
-# Load the trained model once at import time.
-# Returns None (with a warning) if weights.pth doesn't exist yet.
 _model = load_model()
 
 
@@ -16,10 +15,6 @@ def _extract_domain(url):
 
 
 def _nn_score_for(domain):
-    """
-    Run the PhishingCNN on the bare domain string.
-    Returns a percentage float (e.g. 73.4) or None if not yet trained.
-    """
     prob = predict_risk(domain, _model)
     if prob is None:
         return None
@@ -28,7 +23,7 @@ def _nn_score_for(domain):
 
 @scan_bp.route("/scan", methods=["POST"])
 def scan():
-    """Fetch cert + rule-based risk + TextCNN neural network score."""
+    """Cert check + rule-based risk + TextCNN score + redirect chain inspection."""
     data = request.get_json()
     url = (data.get("url") or "").strip()
     if not url:
@@ -42,6 +37,7 @@ def scan():
 
     risk = analyze_risk(cert_info)
     nn_score = _nn_score_for(domain)
+    redirect_result = inspect_redirect_chain(url)
 
     return jsonify({
         "domain": domain,
@@ -60,12 +56,13 @@ def scan():
             "findings": risk["findings"],
             "summary": risk["summary"],
         },
+        "redirect_check": redirect_result,
     })
 
 
 @scan_bp.route("/explain", methods=["POST"])
 def explain():
-    """TextCNN score + GPT-4 explanation (score injected into prompt)."""
+    """GPT explanation with cert + NN score + redirect chain context injected."""
     data = request.get_json()
     url = (data.get("url") or "").strip()
     if not url:
@@ -78,11 +75,10 @@ def explain():
         return jsonify({"error": error}), 400
 
     risk = analyze_risk(cert_info)
-
-    # Raw [0, 1] probability for the LLM prompt
     nn_prob = predict_risk(domain, _model)
+    redirect_result = inspect_redirect_chain(url)
 
-    ai = explain_with_ai(domain, cert_info, risk, nn_risk_score=nn_prob)
+    ai = explain_with_ai(domain, cert_info, risk, nn_risk_score=nn_prob, redirect_check=redirect_result)
 
     return jsonify({
         "ai_explanation": ai["explanation"],

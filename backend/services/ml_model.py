@@ -209,7 +209,7 @@ def load_model():
     return model
 
 
-def predict_risk(url_or_domain: str, model=None) -> float | None:
+def predict_risk(url_or_domain: str, model=None) -> "float | None":
     """
     Return P(phishing) in [0.0, 1.0] for a URL or bare domain string.
 

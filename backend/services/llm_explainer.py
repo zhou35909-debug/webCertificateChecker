@@ -12,17 +12,17 @@ def _get_client():
     return _client
 
 
-def explain_with_ai(domain, cert_info, risk, nn_risk_score=None):
+def explain_with_ai(domain, cert_info, risk, nn_risk_score=None, redirect_check=None):
     """
     Ask OpenAI to explain the scan result in plain English and suggest next steps.
 
     Parameters
     ----------
-    domain        : bare domain string
-    cert_info     : dict from cert_checker
-    risk          : dict from risk_analyzer
-    nn_risk_score : float [0, 1] — P(phishing) from the local PyTorch model,
-                    or None if the model has not been trained yet
+    domain         : bare domain string
+    cert_info      : dict from cert_checker
+    risk           : dict from risk_analyzer
+    nn_risk_score  : float [0, 1] from TextCNN, or None
+    redirect_check : dict from redirect_chain_inspector, or None
 
     Returns dict with 'explanation' and 'recommendations'.
     """
@@ -32,29 +32,43 @@ def explain_with_ai(domain, cert_info, risk, nn_risk_score=None):
             "recommendations": ["Add your OpenAI API key to enable AI-powered analysis."],
         }
 
-    # ── Build the neural-network section of the prompt ────────────────────
+    # Neural network section
     if nn_risk_score is not None:
         pct = round(nn_risk_score * 100, 1)
-        if pct >= 70:
-            nn_verdict = "HIGH phishing risk"
-        elif pct >= 40:
-            nn_verdict = "MODERATE phishing risk"
-        else:
-            nn_verdict = "LOW phishing risk"
-
+        nn_verdict = "HIGH" if pct >= 70 else "MODERATE" if pct >= 40 else "LOW"
         nn_line = (
-            f"\n- Neural Network Risk Score: {pct}% ({nn_verdict}) — "
-            "derived from URL structure (length, subdomains, hyphens, IP usage), "
-            "SSL certificate state, and cert validity duration."
+            f"\n- Neural Network Risk Score: {pct}% ({nn_verdict} phishing risk) — "
+            "derived from URL character patterns (subdomains, hyphens, IP usage, length)."
         )
         nn_instruction = (
-            "The local deep-learning model produced a Neural Network Risk Score. "
-            "Briefly explain what that score means and which certificate or URL "
-            "features most likely drove it (refer to the score value explicitly)."
+            "Briefly mention the Neural Network Risk Score and what URL features likely drove it."
         )
     else:
         nn_line = ""
         nn_instruction = ""
+
+    # Redirect chain section
+    if redirect_check and redirect_check.get("status") == "ok":
+        r = redirect_check
+        redirect_line = (
+            f"\n- Redirect Chain: {r['redirect_count']} redirect(s). "
+            f"Final URL: {r['final_url']}. "
+            f"Cross-domain jump: {r['cross_domain_redirect']}. "
+            f"HTTP→HTTPS upgrade: {r['http_to_https_upgrade']}. "
+            f"Risk level: {r['risk_level']}. "
+            f"{r['reasoning']}"
+        )
+        redirect_instruction = (
+            "Include a brief note about the redirect chain findings "
+            "(e.g. how many redirects, whether the destination domain changed, "
+            "and what that means for the user)."
+        )
+    elif redirect_check and redirect_check.get("status") == "unavailable":
+        redirect_line = f"\n- Redirect Chain: Inspection unavailable ({redirect_check.get('error', 'unknown error')})."
+        redirect_instruction = ""
+    else:
+        redirect_line = ""
+        redirect_instruction = ""
 
     prompt = f"""
 A user just scanned the SSL certificate for "{domain}". Here are the results:
@@ -65,10 +79,11 @@ A user just scanned the SSL certificate for "{domain}". Here are the results:
 - Hostname match: {cert_info['hostname_match']}
 - CA verified: {cert_info.get('ca_verified', True)}
 - Rule-based risk level: {risk['risk_level']}
-- Findings: {", ".join(risk['findings'])}{nn_line}
+- Findings: {", ".join(risk['findings'])}{nn_line}{redirect_line}
 
 Write a 2-3 sentence plain-English explanation of what this means for a non-technical user.
 {nn_instruction}
+{redirect_instruction}
 Then provide 2-3 specific recommended actions.
 
 Respond with JSON only, in this exact format:
@@ -83,7 +98,7 @@ Respond with JSON only, in this exact format:
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": prompt}],
             response_format={"type": "json_object"},
-            max_tokens=350,
+            max_tokens=400,
         )
         data = json.loads(response.choices[0].message.content)
         return {
