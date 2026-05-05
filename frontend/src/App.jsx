@@ -8,6 +8,7 @@ const INITIAL_TOOLS = [
   { id: "cert",     name: "Certificate Checker",      status: "idle", summary: null },
   { id: "nn",       name: "URL Phishing Detector",     status: "idle", summary: null },
   { id: "redirect", name: "Redirect Chain Inspector",  status: "idle", summary: null },
+  { id: "intermediate", name: "Intermediate Chain Inspector",status: "idle", summary: null },
   { id: "llm",      name: "LLM Security Assistant",    status: "idle", summary: null },
 ]
 
@@ -40,6 +41,7 @@ function App() {
     setToolStatus("cert", "running")
     const t1 = setTimeout(() => setToolStatus("nn",       "running"), 450)
     const t2 = setTimeout(() => setToolStatus("redirect", "running"), 900)
+    const t3 = setTimeout(() => setToolStatus("intermediate", "running"), 1300)
 
     let localResult = null
     try {
@@ -51,6 +53,7 @@ function App() {
       const data = await res.json()
       clearTimeout(t1)
       clearTimeout(t2)
+      clearTimeout(t3);
 
       if (!res.ok) {
         setError(data.error || "Scan failed.")
@@ -73,6 +76,15 @@ function App() {
       )
 
       setToolStatus("redirect", "done", getRedirectSummary(data.redirect_check))
+      const certs = data.intermediate_certs?.[0]?.chain ?? []
+      const expiredInChain = certs.filter(c => c.not_after && new Date(c.not_after) < new Date())
+      const intermediateSummary = certs.length === 0
+        ? "No chain data"
+        : expiredInChain.length > 0
+          ? `${certs.length} certs · ${expiredInChain.length} expired`
+          : `${certs.length} cert${certs.length > 1 ? "s" : ""} · Chain OK`
+      setToolStatus("intermediate", "done", intermediateSummary)
+
     } catch {
       clearTimeout(t1)
       clearTimeout(t2)

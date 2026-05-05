@@ -4,6 +4,8 @@ from services.risk_analyzer import analyze_risk
 from services.llm_explainer import explain_with_ai
 from services.ml_model import load_model, predict_risk
 from services.redirect_chain_inspector import inspect_redirect_chain
+from services.intermediate_cert_checker import inspect_cert_chain_for_hosts
+from urllib.parse import urlparse
 
 scan_bp = Blueprint("scan", __name__)
 
@@ -39,6 +41,13 @@ def scan():
     nn_score = _nn_score_for(domain)
     redirect_result = inspect_redirect_chain(url)
 
+    https_hops = [
+        (urlparse(u).hostname, urlparse(u).port or 443)
+        for u in redirect_result["redirect_chain"]\
+        if urlparse(u).scheme == "https"
+    ]
+    cert_results = inspect_cert_chain_for_hosts(https_hops)
+
     return jsonify({
         "domain": domain,
         "status": risk["status"],
@@ -52,6 +61,7 @@ def scan():
             "days_remaining": cert_info["days_remaining"],
             "hostname_match": cert_info["hostname_match"],
         },
+        "intermediate_certs": cert_results,
         "analysis": {
             "findings": risk["findings"],
             "summary": risk["summary"],

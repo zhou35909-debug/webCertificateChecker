@@ -590,3 +590,90 @@ header p {
   color: #22c55e;
   font-family: sans-serif;
 }
+
+/* ── Intermediate Chain Inspector ─────────────────────────────────────── */
+
+.chain-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.chain-cert {
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  position: relative;
+}
+
+.chain-cert:last-child {
+  border-bottom: none;
+}
+
+.chain-cert--expired {
+  background: rgba(239, 68, 68, 0.04);
+  border-radius: 6px;
+  padding: 12px 8px;
+  margin: 0 -8px;
+}
+
+.chain-cert-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.chain-cert-index {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.5);
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.chain-cert-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.4);
+}
+
+.chain-cert-expired-badge {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+
+.chain-arrow {
+  text-align: center;
+  color: rgba(255,255,255,0.2);
+  font-size: 14px;
+  margin: 4px 0 -4px;
+  user-select: none;
+}
+
+.chain-fingerprint {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 8px;
+}
+
+.chain-fingerprint-value {
+  font-size: 10px;
+  word-break: break-all;
+  color: rgba(255,255,255,0.3);
+  line-height: 1.5;
+}

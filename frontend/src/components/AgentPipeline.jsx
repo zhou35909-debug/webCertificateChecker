@@ -198,6 +198,49 @@ function ToolDetails({ id, scanResult, aiResult }) {
       </div>
     )
   }
+  if (id === "intermediate") {
+    const hostResult = scanResult?.intermediate_certs?.[0]
+    const certs = hostResult?.chain ?? []
+    if (certs.length === 0) {
+      return <p className="details-empty">No intermediate certificate data available.</p>
+    }
+    return (
+      <div className="chain-list">
+        {certs.map((cert, i) => {
+          const now = new Date()
+          const notAfter = cert.not_after ? new Date(cert.not_after) : null
+          const expired = notAfter && notAfter < now
+          const isLeaf = i === 0
+          const isRoot = i === certs.length - 1
+          const label = isLeaf ? "Leaf" : isRoot ? "Root" : `Intermediate ${i}`
+          return (
+            <div key={i} className={`chain-cert${expired ? " chain-cert--expired" : ""}`}>
+              <div className="chain-cert-header">
+                <span className="chain-cert-index">{i + 1}</span>
+                <span className="chain-cert-label">{label}</span>
+                {expired && <span className="chain-cert-expired-badge">EXPIRED</span>}
+              </div>
+              <div className="cert-grid">
+                <Cell label="Subject"  value={cert.subject_cn  ?? "—"} />
+                <Cell label="Issuer"   value={cert.issuer_cn   ?? "—"} />
+                <Cell label="Valid From" value={cert.not_before ? cert.not_before.slice(0, 10) : "—"} />
+                <Cell label="Valid To"   value={cert.not_after  ? cert.not_after.slice(0, 10)  : "—"} />
+              </div>
+              {cert.fingerprint_sha256 && (
+                <div className="chain-fingerprint">
+                  <span className="inspect-label">SHA-256</span>
+                  <span className="inspect-value inspect-value--mono chain-fingerprint-value">
+                    {cert.fingerprint_sha256}
+                  </span>
+                </div>
+              )}
+              {i < certs.length - 1 && <div className="chain-arrow">↓</div>}
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
 
   // ── LLM Security Assistant ───────────────────────────────────────────────
   if (id === "llm") {
